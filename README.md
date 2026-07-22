@@ -71,6 +71,33 @@ d'accès à l'adresse d'un autre utilisateur renvoie `403`.
 
 ---
 
+## Dépendances
+
+> **Légende** — 🔴 indispensable (le service ne démarre pas ou ne sert à rien) ·
+> 🟠 nécessaire à une fonctionnalité (le reste continue de marcher) ·
+> 🟡 optionnelle (dégradation silencieuse, journalisée)
+
+| Dépendance | Type | Conséquence si absente |
+|---|---|---|
+| **PostgreSQL** (`user-db`) | 🔴 | Le service ne démarre pas |
+| **auth-service** | 🟠 | Ce service **n'appelle jamais** `auth-service`. Mais sans lui, personne ne peut obtenir de jeton, donc plus aucun appel n'aboutit (`401`). |
+
+**Aucun appel sortant vers un autre service.** `user-service` est autonome.
+
+### Qui dépend de ce service
+
+| Service | Type | Conséquence si `user-service` est arrêté |
+|---|---|---|
+| `auth-service` | 🟡 | L'inscription fonctionne toujours (appel non bloquant) |
+| `web-app` | 🟠 | Seule la page **Profil** est cassée ; le reste de l'application fonctionne |
+
+> ℹ️ **La validation du JWT est locale** : chaque service vérifie la signature
+> avec le secret partagé, **sans appel réseau à `auth-service`**. Si
+> `auth-service` tombe, les jetons déjà émis continuent donc de fonctionner —
+> seules la connexion et l'inscription sont impossibles.
+
+---
+
 ## Lancement
 
 ```bash

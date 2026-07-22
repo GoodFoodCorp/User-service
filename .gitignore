@@ -1,0 +1,5 @@
+.env
+*.out
+user-service
+vendor/
+.DS_Store

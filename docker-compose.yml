@@ -1,0 +1,40 @@
+services:
+  user-service:
+    build: .
+    container_name: user-service
+    restart: unless-stopped
+    ports:
+      - "8087:8087"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@user-db:5432/${POSTGRES_DB}?sslmode=disable
+    depends_on:
+      user-db:
+        condition: service_healthy
+    networks:
+      - microservices-net
+
+  user-db:
+    image: postgres:17-alpine
+    container_name: user-postgres
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "5437:5432"
+    volumes:
+      - user_data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+networks:
+  microservices-net:
+    external: true
+volumes:
+  user_data:

@@ -3,7 +3,7 @@ name: CI Docker user-service
 on:
   push:
     branches:
-      - deploy-automated
+      - develop
 
 jobs:
   build:

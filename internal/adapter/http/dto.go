@@ -13,6 +13,7 @@ type profileRequest struct {
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
 	Phone     string `json:"phone"`
+	Age       *int   `json:"age"`
 }
 
 type profileResponse struct {
@@ -20,7 +21,34 @@ type profileResponse struct {
 	FirstName string    `json:"first_name"`
 	LastName  string    `json:"last_name"`
 	Phone     string    `json:"phone"`
+	AvatarURL string    `json:"avatar_url"`
+	Age       *int      `json:"age"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type favoriteRequest struct {
+	Kind     string `json:"kind"`
+	TargetID string `json:"target_id"`
+}
+
+type favoriteResponse struct {
+	ID        string    `json:"id"`
+	Kind      string    `json:"kind"`
+	TargetID  string    `json:"target_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type notificationPreferencesRequest struct {
+	EmailOrders bool `json:"email_orders"`
+	EmailPromos bool `json:"email_promos"`
+	SmsOrders   bool `json:"sms_orders"`
+}
+
+type notificationPreferencesResponse struct {
+	EmailOrders bool      `json:"email_orders"`
+	EmailPromos bool      `json:"email_promos"`
+	SmsOrders   bool      `json:"sms_orders"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type addressRequest struct {
@@ -52,7 +80,22 @@ func toProfileResponse(p *domain.Profile) profileResponse {
 		FirstName: p.FirstName,
 		LastName:  p.LastName,
 		Phone:     p.Phone,
+		AvatarURL: p.AvatarURL,
+		Age:       p.Age,
 		UpdatedAt: p.UpdatedAt,
+	}
+}
+
+func toFavoriteResponse(f *domain.Favorite) favoriteResponse {
+	return favoriteResponse{ID: f.ID, Kind: string(f.Kind), TargetID: f.TargetID, CreatedAt: f.CreatedAt}
+}
+
+func toNotificationPreferencesResponse(p *domain.NotificationPreferences) notificationPreferencesResponse {
+	return notificationPreferencesResponse{
+		EmailOrders: p.EmailOrders,
+		EmailPromos: p.EmailPromos,
+		SmsOrders:   p.SmsOrders,
+		UpdatedAt:   p.UpdatedAt,
 	}
 }
 

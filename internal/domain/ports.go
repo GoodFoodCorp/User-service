@@ -16,3 +16,6 @@ type AddressRepository interface {
 	Delete(ctx context.Context, id string) error
 	ClearDefault(ctx context.Context, userID string) error
 }
+
+// FavoriteRepository and NotificationPreferencesRepository are declared next
+// to their aggregate in favorite.go / notification_preferences.go.

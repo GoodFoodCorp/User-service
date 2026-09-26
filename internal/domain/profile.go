@@ -14,6 +14,8 @@ type Profile struct {
 	FirstName string
 	LastName  string
 	Phone     string
+	AvatarURL string
+	Age       *int
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -30,17 +32,28 @@ type ProfileInput struct {
 	FirstName string
 	LastName  string
 	Phone     string
+	Age       *int
 }
 
 func (p *Profile) Update(in ProfileInput) error {
 	if len(in.Phone) > 30 {
 		return NewValidationError("phone number is too long")
 	}
+	if in.Age != nil && (*in.Age < 0 || *in.Age > 120) {
+		return NewValidationError("age must be between 0 and 120")
+	}
 	p.FirstName = strings.TrimSpace(in.FirstName)
 	p.LastName = strings.TrimSpace(in.LastName)
 	p.Phone = strings.TrimSpace(in.Phone)
+	p.Age = in.Age
 	p.UpdatedAt = time.Now().UTC()
 	return nil
+}
+
+// SetAvatar records the public URL of the uploaded avatar image.
+func (p *Profile) SetAvatar(url string) {
+	p.AvatarURL = url
+	p.UpdatedAt = time.Now().UTC()
 }
 
 // Address is a saved delivery address belonging to one user.

@@ -21,9 +21,9 @@ func NewProfileRepository(pool *pgxpool.Pool) *ProfileRepository {
 func (r *ProfileRepository) GetByUserID(ctx context.Context, userID string) (*domain.Profile, error) {
 	var p domain.Profile
 	err := r.pool.QueryRow(ctx,
-		`SELECT user_id, first_name, last_name, phone, created_at, updated_at
+		`SELECT user_id, first_name, last_name, phone, avatar_url, age, created_at, updated_at
 		 FROM profiles WHERE user_id = $1`, userID).
-		Scan(&p.UserID, &p.FirstName, &p.LastName, &p.Phone, &p.CreatedAt, &p.UpdatedAt)
+		Scan(&p.UserID, &p.FirstName, &p.LastName, &p.Phone, &p.AvatarURL, &p.Age, &p.CreatedAt, &p.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, domain.NewNotFoundError("profile not found")
 	}
@@ -43,8 +43,8 @@ func (r *ProfileRepository) Create(ctx context.Context, p *domain.Profile) error
 
 func (r *ProfileRepository) Update(ctx context.Context, p *domain.Profile) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE profiles SET first_name=$1, last_name=$2, phone=$3, updated_at=$4 WHERE user_id=$5`,
-		p.FirstName, p.LastName, p.Phone, p.UpdatedAt, p.UserID)
+		`UPDATE profiles SET first_name=$1, last_name=$2, phone=$3, avatar_url=$4, age=$5, updated_at=$6 WHERE user_id=$7`,
+		p.FirstName, p.LastName, p.Phone, p.AvatarURL, p.Age, p.UpdatedAt, p.UserID)
 	return err
 }
 

@@ -13,12 +13,19 @@ type Actor struct {
 }
 
 type UseCases struct {
-	profiles  domain.ProfileRepository
-	addresses domain.AddressRepository
+	profiles      domain.ProfileRepository
+	addresses     domain.AddressRepository
+	favorites     domain.FavoriteRepository
+	notifications domain.NotificationPreferencesRepository
 }
 
-func NewUseCases(profiles domain.ProfileRepository, addresses domain.AddressRepository) *UseCases {
-	return &UseCases{profiles: profiles, addresses: addresses}
+func NewUseCases(
+	profiles domain.ProfileRepository,
+	addresses domain.AddressRepository,
+	favorites domain.FavoriteRepository,
+	notifications domain.NotificationPreferencesRepository,
+) *UseCases {
+	return &UseCases{profiles: profiles, addresses: addresses, favorites: favorites, notifications: notifications}
 }
 
 // EnsureProfile creates a blank profile if none exists. Called by auth-service
@@ -64,6 +71,19 @@ func (uc *UseCases) UpdateMyProfile(ctx context.Context, actor Actor, in domain.
 	if err := profile.Update(in); err != nil {
 		return nil, err
 	}
+	if err := uc.profiles.Update(ctx, profile); err != nil {
+		return nil, err
+	}
+	return profile, nil
+}
+
+// SetMyAvatar records the public URL of the caller's freshly uploaded avatar.
+func (uc *UseCases) SetMyAvatar(ctx context.Context, actor Actor, url string) (*domain.Profile, error) {
+	profile, err := uc.GetMyProfile(ctx, actor)
+	if err != nil {
+		return nil, err
+	}
+	profile.SetAvatar(url)
 	if err := uc.profiles.Update(ctx, profile); err != nil {
 		return nil, err
 	}

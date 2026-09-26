@@ -10,6 +10,7 @@ type Config struct {
 	DatabaseURL string
 	JWTSecret   string
 	LogLevel    string
+	UploadsDir  string
 }
 
 func Load() (*Config, error) {
@@ -18,6 +19,7 @@ func Load() (*Config, error) {
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		JWTSecret:   os.Getenv("JWT_SECRET"),
 		LogLevel:    getEnv("LOG_LEVEL", "info"),
+		UploadsDir:  getEnv("UPLOADS_DIR", "/data/uploads"),
 	}
 	if cfg.DatabaseURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL is required")

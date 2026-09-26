@@ -82,8 +82,70 @@ func (f *fakeAddresses) ClearDefault(_ context.Context, userID string) error {
 	return nil
 }
 
+type fakeFavorites struct{ items map[string]*domain.Favorite }
+
+func newFakeFavorites() *fakeFavorites { return &fakeFavorites{items: map[string]*domain.Favorite{}} }
+
+func favoriteKey(userID string, kind domain.FavoriteKind, targetID string) string {
+	return userID + "|" + string(kind) + "|" + targetID
+}
+
+func (f *fakeFavorites) ListByUser(_ context.Context, userID string) ([]domain.Favorite, error) {
+	out := []domain.Favorite{}
+	for _, fav := range f.items {
+		if fav.UserID == userID {
+			out = append(out, *fav)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeFavorites) Exists(_ context.Context, userID string, kind domain.FavoriteKind, targetID string) (bool, error) {
+	_, ok := f.items[favoriteKey(userID, kind, targetID)]
+	return ok, nil
+}
+
+func (f *fakeFavorites) Create(_ context.Context, fav *domain.Favorite) error {
+	key := favoriteKey(fav.UserID, fav.Kind, fav.TargetID)
+	if existing, ok := f.items[key]; ok {
+		*fav = *existing
+		return nil
+	}
+	cp := *fav
+	f.items[key] = &cp
+	return nil
+}
+
+func (f *fakeFavorites) Delete(_ context.Context, userID string, kind domain.FavoriteKind, targetID string) error {
+	delete(f.items, favoriteKey(userID, kind, targetID))
+	return nil
+}
+
+type fakeNotificationPreferences struct {
+	items map[string]*domain.NotificationPreferences
+}
+
+func newFakeNotificationPreferences() *fakeNotificationPreferences {
+	return &fakeNotificationPreferences{items: map[string]*domain.NotificationPreferences{}}
+}
+
+func (f *fakeNotificationPreferences) GetByUserID(_ context.Context, userID string) (*domain.NotificationPreferences, error) {
+	p, ok := f.items[userID]
+	if !ok {
+		return nil, domain.NewNotFoundError("notification preferences not found")
+	}
+	cp := *p
+	return &cp, nil
+}
+
+func (f *fakeNotificationPreferences) Upsert(_ context.Context, p *domain.NotificationPreferences) error {
+	cp := *p
+	f.items[p.UserID] = &cp
+	return nil
+}
+
 func setup() *UseCases {
-	return NewUseCases(newFakeProfiles(), newFakeAddresses())
+	return NewUseCases(newFakeProfiles(), newFakeAddresses(), newFakeFavorites(), newFakeNotificationPreferences())
 }
 
 var alice = Actor{UserID: "user-1", RoleSlugs: []string{"user"}}
@@ -167,4 +229,33 @@ func TestOnlyOneDefaultAddress(t *testing.T) {
 	}
 	assert.Equal(t, 1, defaults, "adding a new default clears the previous one")
 	assert.NotEmpty(t, first.ID)
+}
+
+func TestAddFavoriteIsIdempotent(t *testing.T) {
+	uc := setup()
+	first, err := uc.AddFavorite(context.Background(), alice, domain.FavoriteKindDish, "dish-1")
+	require.NoError(t, err)
+	second, err := uc.AddFavorite(context.Background(), alice, domain.FavoriteKindDish, "dish-1")
+	require.NoError(t, err)
+	assert.Equal(t, first.ID, second.ID, "starring twice keeps the original row")
+
+	list, _ := uc.ListMyFavorites(context.Background(), alice)
+	assert.Len(t, list, 1)
+
+	require.NoError(t, uc.RemoveFavorite(context.Background(), alice, domain.FavoriteKindDish, "dish-1"))
+	list, _ = uc.ListMyFavorites(context.Background(), alice)
+	assert.Empty(t, list)
+}
+
+func TestNotificationPreferencesDefaultThenUpdate(t *testing.T) {
+	uc := setup()
+	prefs, err := uc.GetMyNotificationPreferences(context.Background(), alice)
+	require.NoError(t, err)
+	assert.True(t, prefs.EmailOrders, "orders email is opt-out, not opt-in")
+
+	updated, err := uc.UpdateMyNotificationPreferences(context.Background(), alice,
+		domain.NotificationPreferencesInput{EmailOrders: false, EmailPromos: false, SmsOrders: true})
+	require.NoError(t, err)
+	assert.False(t, updated.EmailOrders)
+	assert.True(t, updated.SmsOrders)
 }

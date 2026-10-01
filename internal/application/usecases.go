@@ -13,20 +13,27 @@ type Actor struct {
 }
 
 type UseCases struct {
-	profiles  domain.ProfileRepository
-	addresses domain.AddressRepository
-	settings interface {
+	profiles      domain.ProfileRepository
+	addresses     domain.AddressRepository
+	favorites     domain.FavoriteRepository
+	notifications domain.NotificationPreferencesRepository
+	settings      interface {
 		GetSettings(context.Context, string) (*domain.UserSettings, error)
 		UpdateSettings(context.Context, string, domain.SettingsInput) (*domain.UserSettings, error)
 	}
 }
 
-func NewUseCases(profiles domain.ProfileRepository, addresses domain.AddressRepository) *UseCases {
+func NewUseCases(
+	profiles domain.ProfileRepository,
+	addresses domain.AddressRepository,
+	favorites domain.FavoriteRepository,
+	notifications domain.NotificationPreferencesRepository,
+) *UseCases {
 	settings, _ := profiles.(interface {
 		GetSettings(context.Context, string) (*domain.UserSettings, error)
 		UpdateSettings(context.Context, string, domain.SettingsInput) (*domain.UserSettings, error)
 	})
-	return &UseCases{profiles: profiles, addresses: addresses, settings: settings}
+	return &UseCases{profiles: profiles, addresses: addresses, favorites: favorites, notifications: notifications, settings: settings}
 }
 
 func (uc *UseCases) GetMySettings(ctx context.Context, actor Actor) (*domain.UserSettings, error) {
@@ -82,6 +89,19 @@ func (uc *UseCases) UpdateMyProfile(ctx context.Context, actor Actor, in domain.
 	if err := profile.Update(in); err != nil {
 		return nil, err
 	}
+	if err := uc.profiles.Update(ctx, profile); err != nil {
+		return nil, err
+	}
+	return profile, nil
+}
+
+// SetMyAvatar records the public URL of the caller's freshly uploaded avatar.
+func (uc *UseCases) SetMyAvatar(ctx context.Context, actor Actor, url string) (*domain.Profile, error) {
+	profile, err := uc.GetMyProfile(ctx, actor)
+	if err != nil {
+		return nil, err
+	}
+	profile.SetAvatar(url)
 	if err := uc.profiles.Update(ctx, profile); err != nil {
 		return nil, err
 	}

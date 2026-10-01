@@ -41,13 +41,16 @@ func main() {
 	uc := application.NewUseCases(
 		postgres.NewProfileRepository(pool),
 		postgres.NewAddressRepository(pool),
+		postgres.NewFavoriteRepository(pool),
+		postgres.NewNotificationPreferencesRepository(pool),
 	)
 
 	router := httpadapter.NewRouter(
-		httpadapter.NewUserHandler(uc),
+		httpadapter.NewUserHandler(uc, cfg.UploadsDir),
 		cfg.JWTSecret,
 		log,
 		func(ctx context.Context) error { return pool.Ping(ctx) },
+		cfg.UploadsDir,
 	)
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: router, ReadHeaderTimeout: 5 * time.Second}

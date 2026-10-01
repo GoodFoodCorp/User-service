@@ -12,7 +12,7 @@ import (
 
 type HealthChecker func(ctx context.Context) error
 
-func NewRouter(handler *UserHandler, jwtSecret string, log zerolog.Logger, dbCheck HealthChecker) http.Handler {
+func NewRouter(handler *UserHandler, jwtSecret string, log zerolog.Logger, dbCheck HealthChecker, uploadsDir string) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimw.Recoverer)
@@ -35,15 +35,24 @@ func NewRouter(handler *UserHandler, jwtSecret string, log zerolog.Logger, dbChe
 	// Service-to-service: auth-service creates a blank profile on registration.
 	r.Post("/internal/profiles", handler.CreateProfileInternal)
 
+	// Public: serves uploaded avatar images (no JWT — plain <img src> tags).
+	r.Handle("/api/users/avatars/*", http.StripPrefix("/api/users/avatars/", http.FileServer(http.Dir(uploadsDir))))
+
 	r.Route("/api/users", func(r chi.Router) {
 		r.Use(Auth(jwtSecret))
 		r.Get("/me", handler.GetMe)
 		r.Put("/me", handler.UpdateMe)
+		r.Post("/me/avatar", handler.UploadAvatar)
 		r.Get("/me/addresses", handler.ListAddresses)
 		r.Post("/me/addresses", handler.AddAddress)
 		r.Delete("/me/addresses/{id}", handler.DeleteAddress)
 		r.Get("/me/settings", handler.GetSettings)
 		r.Patch("/me/settings", handler.UpdateSettings)
+		r.Get("/me/favorites", handler.ListFavorites)
+		r.Post("/me/favorites", handler.AddFavorite)
+		r.Delete("/me/favorites/{kind}/{targetId}", handler.RemoveFavorite)
+		r.Get("/me/notifications", handler.GetNotifications)
+		r.Put("/me/notifications", handler.UpdateNotifications)
 	})
 
 	return r

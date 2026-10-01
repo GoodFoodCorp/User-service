@@ -54,6 +54,30 @@ func (r *ProfileRepository) Exists(ctx context.Context, userID string) (bool, er
 	return exists, err
 }
 
+func (r *ProfileRepository) GetSettings(ctx context.Context, userID string) (*domain.UserSettings, error) {
+	settings := &domain.UserSettings{UserID: userID}
+	err := r.pool.QueryRow(ctx, `INSERT INTO user_settings (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING RETURNING user_id`, userID).Scan(&settings.UserID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = r.pool.QueryRow(ctx, `SELECT user_id, dark_mode, cutlery, order_tracking, promos, newsletter FROM user_settings WHERE user_id = $1`, userID).Scan(&settings.UserID, &settings.DarkMode, &settings.Cutlery, &settings.OrderTracking, &settings.Promos, &settings.Newsletter)
+	} else if err != nil {
+		return nil, err
+	}
+	if err := r.pool.QueryRow(ctx, `SELECT user_id, dark_mode, cutlery, order_tracking, promos, newsletter FROM user_settings WHERE user_id = $1`, userID).Scan(&settings.UserID, &settings.DarkMode, &settings.Cutlery, &settings.OrderTracking, &settings.Promos, &settings.Newsletter); err != nil { return nil, err }
+	return settings, nil
+}
+
+func (r *ProfileRepository) UpdateSettings(ctx context.Context, userID string, in domain.SettingsInput) (*domain.UserSettings, error) {
+	current, err := r.GetSettings(ctx, userID)
+	if err != nil { return nil, err }
+	if in.DarkMode != nil { current.DarkMode = *in.DarkMode }
+	if in.Cutlery != nil { current.Cutlery = *in.Cutlery }
+	if in.OrderTracking != nil { current.OrderTracking = *in.OrderTracking }
+	if in.Promos != nil { current.Promos = *in.Promos }
+	if in.Newsletter != nil { current.Newsletter = *in.Newsletter }
+	_, err = r.pool.Exec(ctx, `UPDATE user_settings SET dark_mode=$1, cutlery=$2, order_tracking=$3, promos=$4, newsletter=$5 WHERE user_id=$6`, current.DarkMode, current.Cutlery, current.OrderTracking, current.Promos, current.Newsletter, userID)
+	return current, err
+}
+
 type AddressRepository struct {
 	pool *pgxpool.Pool
 }

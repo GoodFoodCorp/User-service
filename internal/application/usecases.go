@@ -15,10 +15,28 @@ type Actor struct {
 type UseCases struct {
 	profiles  domain.ProfileRepository
 	addresses domain.AddressRepository
+	settings interface {
+		GetSettings(context.Context, string) (*domain.UserSettings, error)
+		UpdateSettings(context.Context, string, domain.SettingsInput) (*domain.UserSettings, error)
+	}
 }
 
 func NewUseCases(profiles domain.ProfileRepository, addresses domain.AddressRepository) *UseCases {
-	return &UseCases{profiles: profiles, addresses: addresses}
+	settings, _ := profiles.(interface {
+		GetSettings(context.Context, string) (*domain.UserSettings, error)
+		UpdateSettings(context.Context, string, domain.SettingsInput) (*domain.UserSettings, error)
+	})
+	return &UseCases{profiles: profiles, addresses: addresses, settings: settings}
+}
+
+func (uc *UseCases) GetMySettings(ctx context.Context, actor Actor) (*domain.UserSettings, error) {
+	if uc.settings == nil { return nil, domain.NewValidationError("settings unavailable") }
+	return uc.settings.GetSettings(ctx, actor.UserID)
+}
+
+func (uc *UseCases) UpdateMySettings(ctx context.Context, actor Actor, in domain.SettingsInput) (*domain.UserSettings, error) {
+	if uc.settings == nil { return nil, domain.NewValidationError("settings unavailable") }
+	return uc.settings.UpdateSettings(ctx, actor.UserID, in)
 }
 
 // EnsureProfile creates a blank profile if none exists. Called by auth-service

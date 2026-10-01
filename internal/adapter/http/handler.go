@@ -107,3 +107,17 @@ func (h *UserHandler) DeleteAddress(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (h *UserHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
+	settings, err := h.uc.GetMySettings(r.Context(), actorFrom(r))
+	if err != nil { writeDomainError(w, r, err); return }
+	writeJSON(w, http.StatusOK, settings)
+}
+
+func (h *UserHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
+	var req domain.SettingsInput
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil { writeError(w, r, http.StatusBadRequest, "invalid JSON body"); return }
+	settings, err := h.uc.UpdateMySettings(r.Context(), actorFrom(r), req)
+	if err != nil { writeDomainError(w, r, err); return }
+	writeJSON(w, http.StatusOK, settings)
+}

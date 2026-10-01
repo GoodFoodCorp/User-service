@@ -42,6 +42,8 @@ func NewRouter(handler *UserHandler, jwtSecret string, log zerolog.Logger, dbChe
 		r.Get("/me/addresses", handler.ListAddresses)
 		r.Post("/me/addresses", handler.AddAddress)
 		r.Delete("/me/addresses/{id}", handler.DeleteAddress)
+		r.Get("/me/settings", handler.GetSettings)
+		r.Patch("/me/settings", handler.UpdateSettings)
 	})
 
 	return r

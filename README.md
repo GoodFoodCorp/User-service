@@ -66,7 +66,10 @@ d'accès à l'adresse d'un autre utilisateur renvoie `403`.
 | GET | `/api/users/me/addresses` | authentifié |
 | POST | `/api/users/me/addresses` | authentifié |
 | DELETE | `/api/users/me/addresses/{id}` | authentifié (la sienne) |
-| POST | `/internal/profiles` | interne (service à service, sans JWT) |
+| POST | `/internal/profiles` | interne, en-tête `X-Service-Key` (auth-service) |
+| DELETE | `/internal/profiles/{userId}` | interne `X-Service-Key` — effacement RGPD à la suppression du compte |
+| GET | `/api/users/me/export` | soi-même — export RGPD (JSON) |
+| DELETE | `/api/users/me` | soi-même — effacement RGPD (données + avatar) |
 | GET | `/healthz`, `/readyz` | public (sondes) |
 
 ---

@@ -10,10 +10,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 
+	"goodfood/user-service/internal/adapter/avatarstore"
 	httpadapter "goodfood/user-service/internal/adapter/http"
 	"goodfood/user-service/internal/adapter/postgres"
 	"goodfood/user-service/internal/application"
 	"goodfood/user-service/internal/config"
+	"goodfood/user-service/internal/domain"
 )
 
 func main() {
@@ -38,20 +40,37 @@ func main() {
 	}
 	log.Info().Msg("migrations applied")
 
-	uc := application.NewUseCases(
-		postgres.NewProfileRepository(pool),
-		postgres.NewAddressRepository(pool),
-		postgres.NewFavoriteRepository(pool),
-		postgres.NewNotificationPreferencesRepository(pool),
-	)
+	var avatars domain.AvatarStore
+	localAvatars := ""
+	if cfg.S3.Bucket != "" {
+		store, err := avatarstore.NewS3Store(avatarstore.S3Config(cfg.S3))
+		if err != nil {
+			log.Fatal().Err(err).Msg("invalid object storage configuration")
+		}
+		avatars = store
+		log.Info().Str("bucket", cfg.S3.Bucket).Msg("avatars stored in object storage")
+	} else {
+		avatars = avatarstore.DiskStore{Dir: cfg.UploadsDir, URLPrefix: "/api/users/avatars/"}
+		localAvatars = cfg.UploadsDir
+		log.Warn().Msg("S3_BUCKET not set: avatars stored on local disk (development only)")
+	}
 
-	router := httpadapter.NewRouter(
-		httpadapter.NewUserHandler(uc, cfg.UploadsDir),
-		cfg.JWTSecret,
-		log,
-		func(ctx context.Context) error { return pool.Ping(ctx) },
-		cfg.UploadsDir,
-	)
+	uc := application.NewUseCases(application.Deps{
+		Profiles:      postgres.NewProfileRepository(pool),
+		Addresses:     postgres.NewAddressRepository(pool),
+		Favorites:     postgres.NewFavoriteRepository(pool),
+		Notifications: postgres.NewNotificationPreferencesRepository(pool),
+		Avatars:       avatars,
+		Eraser:        postgres.NewDataEraser(pool),
+	})
+
+	router := httpadapter.NewRouter(httpadapter.NewUserHandler(uc), httpadapter.RouterConfig{
+		JWT:             httpadapter.JWTConfig{Secret: cfg.JWTSecret, Issuer: cfg.JWTIssuer, Audience: cfg.JWTAudience},
+		ServiceAPIKey:   cfg.ServiceAPIKey,
+		Log:             log,
+		DBCheck:         func(ctx context.Context) error { return pool.Ping(ctx) },
+		LocalAvatarsDir: localAvatars,
+	})
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: router, ReadHeaderTimeout: 5 * time.Second}
 	log.Info().Str("port", cfg.Port).Msg("user-service started")

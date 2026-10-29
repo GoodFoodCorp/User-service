@@ -12,12 +12,46 @@ import (
 
 // UserHandler exposes profile and address endpoints. No business logic here.
 type UserHandler struct {
-	uc         *application.UseCases
-	uploadsDir string
+	uc *application.UseCases
 }
 
-func NewUserHandler(uc *application.UseCases, uploadsDir string) *UserHandler {
-	return &UserHandler{uc: uc, uploadsDir: uploadsDir}
+func NewUserHandler(uc *application.UseCases) *UserHandler {
+	return &UserHandler{uc: uc}
+}
+
+// GET /api/users/me/export  (right of access: every piece of data held here)
+func (h *UserHandler) ExportMe(w http.ResponseWriter, r *http.Request) {
+	data, err := h.uc.ExportMyData(r.Context(), actorFrom(r))
+	if err != nil {
+		writeDomainError(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Disposition", `attachment; filename="goodfood-mes-donnees.json"`)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"profile":                  toProfileResponse(data.Profile),
+		"addresses":                data.Addresses,
+		"favorites":                data.Favorites,
+		"settings":                 data.Settings,
+		"notification_preferences": data.Notifications,
+	})
+}
+
+// DELETE /api/users/me  (right to erasure)
+func (h *UserHandler) EraseMe(w http.ResponseWriter, r *http.Request) {
+	if err := h.uc.EraseUser(r.Context(), actorFrom(r).UserID); err != nil {
+		writeDomainError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// DELETE /internal/profiles/{userId}  (auth-service, account deleted)
+func (h *UserHandler) EraseInternal(w http.ResponseWriter, r *http.Request) {
+	if err := h.uc.EraseUser(r.Context(), chi.URLParam(r, "userId")); err != nil {
+		writeDomainError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // POST /internal/profiles  (service-to-service, called by auth-service on register)

@@ -17,23 +17,31 @@ type UseCases struct {
 	addresses     domain.AddressRepository
 	favorites     domain.FavoriteRepository
 	notifications domain.NotificationPreferencesRepository
+	avatars       domain.AvatarStore
+	eraser        domain.UserDataEraser
 	settings      interface {
 		GetSettings(context.Context, string) (*domain.UserSettings, error)
 		UpdateSettings(context.Context, string, domain.SettingsInput) (*domain.UserSettings, error)
 	}
 }
 
-func NewUseCases(
-	profiles domain.ProfileRepository,
-	addresses domain.AddressRepository,
-	favorites domain.FavoriteRepository,
-	notifications domain.NotificationPreferencesRepository,
-) *UseCases {
-	settings, _ := profiles.(interface {
+// Deps lists the ports the use cases need.
+type Deps struct {
+	Profiles      domain.ProfileRepository
+	Addresses     domain.AddressRepository
+	Favorites     domain.FavoriteRepository
+	Notifications domain.NotificationPreferencesRepository
+	Avatars       domain.AvatarStore
+	Eraser        domain.UserDataEraser
+}
+
+func NewUseCases(d Deps) *UseCases {
+	settings, _ := d.Profiles.(interface {
 		GetSettings(context.Context, string) (*domain.UserSettings, error)
 		UpdateSettings(context.Context, string, domain.SettingsInput) (*domain.UserSettings, error)
 	})
-	return &UseCases{profiles: profiles, addresses: addresses, favorites: favorites, notifications: notifications, settings: settings}
+	return &UseCases{profiles: d.Profiles, addresses: d.Addresses, favorites: d.Favorites, notifications: d.Notifications,
+		avatars: d.Avatars, eraser: d.Eraser, settings: settings}
 }
 
 func (uc *UseCases) GetMySettings(ctx context.Context, actor Actor) (*domain.UserSettings, error) {
@@ -95,15 +103,3 @@ func (uc *UseCases) UpdateMyProfile(ctx context.Context, actor Actor, in domain.
 	return profile, nil
 }
 
-// SetMyAvatar records the public URL of the caller's freshly uploaded avatar.
-func (uc *UseCases) SetMyAvatar(ctx context.Context, actor Actor, url string) (*domain.Profile, error) {
-	profile, err := uc.GetMyProfile(ctx, actor)
-	if err != nil {
-		return nil, err
-	}
-	profile.SetAvatar(url)
-	if err := uc.profiles.Update(ctx, profile); err != nil {
-		return nil, err
-	}
-	return profile, nil
-}

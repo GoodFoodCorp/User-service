@@ -145,7 +145,8 @@ func (f *fakeNotificationPreferences) Upsert(_ context.Context, p *domain.Notifi
 }
 
 func setup() *UseCases {
-	return NewUseCases(newFakeProfiles(), newFakeAddresses(), newFakeFavorites(), newFakeNotificationPreferences())
+	return NewUseCases(Deps{Profiles: newFakeProfiles(), Addresses: newFakeAddresses(), Favorites: newFakeFavorites(),
+		Notifications: newFakeNotificationPreferences(), Avatars: newFakeAvatars(), Eraser: &fakeEraser{}})
 }
 
 var alice = Actor{UserID: "user-1", RoleSlugs: []string{"user"}}

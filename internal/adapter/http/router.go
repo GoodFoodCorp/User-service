@@ -12,7 +12,19 @@ import (
 
 type HealthChecker func(ctx context.Context) error
 
-func NewRouter(handler *UserHandler, jwtSecret string, log zerolog.Logger, dbCheck HealthChecker, uploadsDir string) http.Handler {
+// RouterConfig groups what the router needs besides the handler.
+type RouterConfig struct {
+	JWT           JWTConfig
+	ServiceAPIKey string
+	Log           zerolog.Logger
+	DBCheck       HealthChecker
+	// LocalAvatarsDir, when set, serves avatars stored on the local disk
+	// (development only; production uses object storage).
+	LocalAvatarsDir string
+}
+
+func NewRouter(handler *UserHandler, cfg RouterConfig) http.Handler {
+	log, dbCheck := cfg.Log, cfg.DBCheck
 	r := chi.NewRouter()
 
 	r.Use(chimw.Recoverer)
@@ -32,16 +44,25 @@ func NewRouter(handler *UserHandler, jwtSecret string, log zerolog.Logger, dbChe
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 	})
 
-	// Service-to-service: auth-service creates a blank profile on registration.
-	r.Post("/internal/profiles", handler.CreateProfileInternal)
+	// Service-to-service (auth-service): blank profile on registration,
+	// erasure on account deletion. Never exposed by the ingress (/api only).
+	r.Route("/internal/profiles", func(r chi.Router) {
+		r.Use(ServiceKey(cfg.ServiceAPIKey))
+		r.Post("/", handler.CreateProfileInternal)
+		r.Delete("/{userId}", handler.EraseInternal)
+	})
 
-	// Public: serves uploaded avatar images (no JWT — plain <img src> tags).
-	r.Handle("/api/users/avatars/*", http.StripPrefix("/api/users/avatars/", http.FileServer(http.Dir(uploadsDir))))
+	if cfg.LocalAvatarsDir != "" {
+		// Public: avatar images stored on disk (no JWT — plain <img src> tags).
+		r.Handle("/api/users/avatars/*", http.StripPrefix("/api/users/avatars/", http.FileServer(http.Dir(cfg.LocalAvatarsDir))))
+	}
 
 	r.Route("/api/users", func(r chi.Router) {
-		r.Use(Auth(jwtSecret))
+		r.Use(Auth(cfg.JWT))
 		r.Get("/me", handler.GetMe)
 		r.Put("/me", handler.UpdateMe)
+		r.Delete("/me", handler.EraseMe)
+		r.Get("/me/export", handler.ExportMe)
 		r.Post("/me/avatar", handler.UploadAvatar)
 		r.Get("/me/addresses", handler.ListAddresses)
 		r.Post("/me/addresses", handler.AddAddress)

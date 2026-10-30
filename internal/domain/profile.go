@@ -58,22 +58,26 @@ func (p *Profile) SetAvatar(url string) {
 
 // Address is a saved delivery address belonging to one user.
 type Address struct {
-	ID        string
-	UserID    string
-	Label     string
-	Street    string
-	ZipCode   string
-	City      string
-	IsDefault bool
-	CreatedAt time.Time
+	ID      string
+	UserID  string
+	Label   string
+	Street  string
+	ZipCode string
+	City    string
+	// CountryCode is the ISO 3166-1 alpha-2 code (an EU member state).
+	CountryCode string
+	IsDefault   bool
+	CreatedAt   time.Time
 }
 
 type AddressInput struct {
-	Label     string
-	Street    string
-	ZipCode   string
-	City      string
-	IsDefault bool
+	Label   string
+	Street  string
+	ZipCode string
+	City    string
+	// CountryCode defaults to FR when empty.
+	CountryCode string
+	IsDefault   bool
 }
 
 func NewAddress(userID string, in AddressInput) (*Address, error) {
@@ -86,33 +90,59 @@ func NewAddress(userID string, in AddressInput) (*Address, error) {
 	if strings.TrimSpace(in.City) == "" {
 		return nil, NewValidationError("city is required")
 	}
+	country := strings.ToUpper(strings.TrimSpace(in.CountryCode))
+	if country == "" {
+		country = DefaultCountryCode
+	}
+	if _, served := euCountryNames[country]; !served {
+		return nil, NewValidationError("deliveries are limited to the European Union")
+	}
 	label := strings.TrimSpace(in.Label)
 	if label == "" {
 		label = "Domicile"
 	}
 	return &Address{
-		ID:        uuid.NewString(),
-		UserID:    userID,
-		Label:     label,
-		Street:    strings.TrimSpace(in.Street),
-		ZipCode:   strings.TrimSpace(in.ZipCode),
-		City:      strings.TrimSpace(in.City),
-		IsDefault: in.IsDefault,
-		CreatedAt: time.Now().UTC(),
+		ID:          uuid.NewString(),
+		UserID:      userID,
+		Label:       label,
+		Street:      strings.TrimSpace(in.Street),
+		ZipCode:     strings.TrimSpace(in.ZipCode),
+		City:        strings.TrimSpace(in.City),
+		CountryCode: country,
+		IsDefault:   in.IsDefault,
+		CreatedAt:   time.Now().UTC(),
 	}, nil
 }
 
 // IsOwnedBy reports whether the address belongs to the given user.
 func (a *Address) IsOwnedBy(userID string) bool { return a.UserID == userID }
 
-// FullAddress renders the address on one line (used by the checkout).
+// FullAddress renders the address on one line, country included so it is
+// geocoded in the right member state (used by the checkout).
 func (a *Address) FullAddress() string {
-	parts := []string{a.Street, a.ZipCode, a.City}
 	out := []string{}
-	for _, p := range parts {
-		if p != "" {
-			out = append(out, p)
-		}
+	if a.Street != "" {
+		out = append(out, a.Street)
+	}
+	if locality := strings.TrimSpace(a.ZipCode + " " + a.City); locality != "" {
+		out = append(out, locality)
+	}
+	if name := euCountryNames[a.CountryCode]; name != "" {
+		out = append(out, name)
 	}
 	return strings.Join(out, ", ")
+}
+
+// DefaultCountryCode applies to addresses saved without a country.
+const DefaultCountryCode = "FR"
+
+// euCountryNames lists the countries deliveries are made in (the EU member
+// states), with their French names.
+var euCountryNames = map[string]string{
+	"AT": "Autriche", "BE": "Belgique", "BG": "Bulgarie", "HR": "Croatie", "CY": "Chypre",
+	"CZ": "Tchéquie", "DK": "Danemark", "EE": "Estonie", "FI": "Finlande", "FR": "France",
+	"DE": "Allemagne", "GR": "Grèce", "HU": "Hongrie", "IE": "Irlande", "IT": "Italie",
+	"LV": "Lettonie", "LT": "Lituanie", "LU": "Luxembourg", "MT": "Malte", "NL": "Pays-Bas",
+	"PL": "Pologne", "PT": "Portugal", "RO": "Roumanie", "SK": "Slovaquie", "SI": "Slovénie",
+	"ES": "Espagne", "SE": "Suède",
 }

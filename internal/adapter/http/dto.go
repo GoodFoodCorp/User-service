@@ -52,21 +52,23 @@ type notificationPreferencesResponse struct {
 }
 
 type addressRequest struct {
-	Label     string `json:"label"`
-	Street    string `json:"street"`
-	ZipCode   string `json:"zip_code"`
-	City      string `json:"city"`
-	IsDefault bool   `json:"is_default"`
+	Label       string `json:"label"`
+	Street      string `json:"street"`
+	ZipCode     string `json:"zip_code"`
+	City        string `json:"city"`
+	CountryCode string `json:"country_code"`
+	IsDefault   bool   `json:"is_default"`
 }
 
 type addressResponse struct {
-	ID        string `json:"id"`
-	Label     string `json:"label"`
-	Street    string `json:"street"`
-	ZipCode   string `json:"zip_code"`
-	City      string `json:"city"`
-	IsDefault bool   `json:"is_default"`
-	Full      string `json:"full_address"`
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	Street      string `json:"street"`
+	ZipCode     string `json:"zip_code"`
+	City        string `json:"city"`
+	CountryCode string `json:"country_code"`
+	IsDefault   bool   `json:"is_default"`
+	Full        string `json:"full_address"`
 }
 
 type errorResponse struct {
@@ -101,13 +103,14 @@ func toNotificationPreferencesResponse(p *domain.NotificationPreferences) notifi
 
 func toAddressResponse(a *domain.Address) addressResponse {
 	return addressResponse{
-		ID:        a.ID,
-		Label:     a.Label,
-		Street:    a.Street,
-		ZipCode:   a.ZipCode,
-		City:      a.City,
-		IsDefault: a.IsDefault,
-		Full:      a.FullAddress(),
+		ID:          a.ID,
+		Label:       a.Label,
+		Street:      a.Street,
+		ZipCode:     a.ZipCode,
+		City:        a.City,
+		CountryCode: a.CountryCode,
+		IsDefault:   a.IsDefault,
+		Full:        a.FullAddress(),
 	}
 }
 

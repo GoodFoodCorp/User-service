@@ -186,7 +186,7 @@ func TestAddressLifecycleAndOwnership(t *testing.T) {
 		domain.AddressInput{Street: "12 rue de Paris", City: "Paris", ZipCode: "75001", IsDefault: true})
 	require.NoError(t, err)
 	assert.Equal(t, "Domicile", addr.Label, "a default label is applied")
-	assert.Equal(t, "12 rue de Paris, 75001, Paris", addr.FullAddress())
+	assert.Equal(t, "12 rue de Paris, 75001 Paris, France", addr.FullAddress())
 
 	list, err := uc.ListMyAddresses(context.Background(), alice)
 	require.NoError(t, err)
@@ -259,4 +259,24 @@ func TestNotificationPreferencesDefaultThenUpdate(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, updated.EmailOrders)
 	assert.True(t, updated.SmsOrders)
+}
+
+func TestAddressesAcrossTheEU(t *testing.T) {
+	uc := setup()
+
+	berlin, err := uc.AddAddress(context.Background(), alice,
+		domain.AddressInput{Street: "Pariser Platz 1", ZipCode: "10117", City: "Berlin", CountryCode: "de"})
+	require.NoError(t, err)
+	assert.Equal(t, "DE", berlin.CountryCode)
+	assert.Equal(t, "Pariser Platz 1, 10117 Berlin, Allemagne", berlin.FullAddress())
+
+	paris, err := uc.AddAddress(context.Background(), alice, domain.AddressInput{Street: "12 rue de Paris", City: "Paris"})
+	require.NoError(t, err)
+	assert.Equal(t, domain.DefaultCountryCode, paris.CountryCode)
+
+	_, err = uc.AddAddress(context.Background(), alice,
+		domain.AddressInput{Street: "10 Downing Street", City: "London", CountryCode: "GB"})
+	var derr *domain.Error
+	require.ErrorAs(t, err, &derr)
+	assert.Equal(t, domain.ErrCodeValidation, derr.Code)
 }

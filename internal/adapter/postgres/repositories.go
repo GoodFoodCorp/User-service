@@ -88,7 +88,7 @@ func NewAddressRepository(pool *pgxpool.Pool) *AddressRepository {
 
 func (r *AddressRepository) ListByUser(ctx context.Context, userID string) ([]domain.Address, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, label, street, zip_code, city, is_default, created_at
+		`SELECT id, user_id, label, street, zip_code, city, country_code, is_default, created_at
 		 FROM addresses WHERE user_id = $1 ORDER BY is_default DESC, created_at DESC`, userID)
 	if err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func (r *AddressRepository) ListByUser(ctx context.Context, userID string) ([]do
 	for rows.Next() {
 		var a domain.Address
 		if err := rows.Scan(&a.ID, &a.UserID, &a.Label, &a.Street, &a.ZipCode,
-			&a.City, &a.IsDefault, &a.CreatedAt); err != nil {
+			&a.City, &a.CountryCode, &a.IsDefault, &a.CreatedAt); err != nil {
 			return nil, err
 		}
 		list = append(list, a)
@@ -110,9 +110,9 @@ func (r *AddressRepository) ListByUser(ctx context.Context, userID string) ([]do
 func (r *AddressRepository) GetByID(ctx context.Context, id string) (*domain.Address, error) {
 	var a domain.Address
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, user_id, label, street, zip_code, city, is_default, created_at
+		`SELECT id, user_id, label, street, zip_code, city, country_code, is_default, created_at
 		 FROM addresses WHERE id = $1`, id).
-		Scan(&a.ID, &a.UserID, &a.Label, &a.Street, &a.ZipCode, &a.City, &a.IsDefault, &a.CreatedAt)
+		Scan(&a.ID, &a.UserID, &a.Label, &a.Street, &a.ZipCode, &a.City, &a.CountryCode, &a.IsDefault, &a.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, domain.NewNotFoundError("address not found")
 	}
@@ -124,9 +124,9 @@ func (r *AddressRepository) GetByID(ctx context.Context, id string) (*domain.Add
 
 func (r *AddressRepository) Create(ctx context.Context, a *domain.Address) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO addresses (id, user_id, label, street, zip_code, city, is_default, created_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-		a.ID, a.UserID, a.Label, a.Street, a.ZipCode, a.City, a.IsDefault, a.CreatedAt)
+		`INSERT INTO addresses (id, user_id, label, street, zip_code, city, country_code, is_default, created_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+		a.ID, a.UserID, a.Label, a.Street, a.ZipCode, a.City, a.CountryCode, a.IsDefault, a.CreatedAt)
 	return err
 }
 
